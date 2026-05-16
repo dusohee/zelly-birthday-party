@@ -6,11 +6,13 @@
 <title>🎂 Zelly 300일 파티!</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
+html { overscroll-behavior:none; }
 body {
   background: linear-gradient(to bottom, #0d47a1 0%, #1565c0 15%, #1e88e5 35%, #64b5f6 60%, #b3e0f7 80%, #dff0fb 100%);
   overflow:hidden; font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  overscroll-behavior:none; touch-action:none;
 }
-#canvas-wrap { width:100vw; height:100vh; }
+#canvas-wrap { width:100vw; height:100vh; height:100dvh; touch-action:none; }
 #title-wrap {
   position:fixed; top:18px; left:50%; transform:translateX(-50%);
   display:flex; flex-direction:column; align-items:center; gap:6px; z-index:10;
@@ -100,20 +102,69 @@ body {
   transition:background 0.15s;
 }
 #muteBtn:hover { background:rgba(255,255,255,1); }
+#loading-screen {
+  position:fixed; inset:0; z-index:9999;
+  background:linear-gradient(135deg,#ff9ee5 0%,#ffc4f0 40%,#ffe0f8 70%,#fff5fd 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  transition:opacity 0.9s ease;
+}
+#loading-screen.fade-out { opacity:0; pointer-events:none; }
+.ld-ham {
+  font-size:72px; line-height:1;
+  animation:hamBounce 0.7s ease-in-out infinite alternate;
+}
+@keyframes hamBounce {
+  from { transform:translateY(0) scale(1); }
+  to   { transform:translateY(-18px) scale(1.08); }
+}
+.ld-title { font-size:22px; font-weight:700; color:#a03070; letter-spacing:1px; }
+.ld-sub   { font-size:14px; color:#c070a0; }
+.ld-bar-wrap {
+  width:240px; height:10px; background:rgba(255,255,255,0.5);
+  border-radius:10px; overflow:hidden; border:1px solid rgba(200,100,160,0.3);
+}
+.ld-bar {
+  height:100%; width:0%; background:linear-gradient(90deg,#c060a0,#ff99cc);
+  border-radius:10px; transition:width 0.3s ease;
+}
+.ld-count { font-size:13px; color:#b06090; }
+.ld-emojis { font-size:26px; letter-spacing:8px; opacity:0.7; }
 #visitor {
   background:rgba(255,255,255,0.88); border-radius:14px;
   padding:5px 16px; font-size:13px; color:#999;
   border:0.5px solid rgba(0,0,0,0.1); display:none; white-space:nowrap;
 }
+@media (max-width: 640px) {
+  #title-wrap { top:10px; left:12px; transform:none; width:calc(100% - 24px); align-items:stretch; }
+  #title { font-size:13px; padding:8px 12px; text-align:center; letter-spacing:0.3px; }
+  #search-box { top:auto; right:auto; bottom:58px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); }
+  #search-input { flex:1; width:0; font-size:16px; padding:8px 12px; }
+  #search-btn { font-size:12px; padding:8px 14px; white-space:nowrap; }
+  #hint { bottom:12px; font-size:11px; padding:5px 12px; max-width:calc(100% - 80px); }
+  #muteBtn { bottom:12px; right:12px; padding:6px 12px; font-size:16px; }
+  .bubble { max-width:160px; }
+  .bubble-name { font-size:12px; }
+  .bubble-msg { font-size:11px; }
+  #zelly-bubble { max-width:84vw; padding:8px 14px; }
+  #zelly-msg { font-size:12px; white-space:normal; text-align:center; }
+}
 </style>
 </head>
 <body>
+<div id="loading-screen">
+  <div class="ld-emojis">🎈🎉🎂</div>
+  <div class="ld-ham">🐹</div>
+  <div class="ld-title">Zelly 300일 생파 준비 중!</div>
+  <div class="ld-bar-wrap"><div class="ld-bar" id="ld-bar"></div></div>
+  <div class="ld-count" id="ld-count">친구들 불러오는 중... 0 / 67</div>
+  <div class="ld-sub">잠깐만요, 햄스터 67마리 모으는 중이에요 🐾</div>
+</div>
 <div id="canvas-wrap"></div>
 <div id="title-wrap">
-  <div id="title">🎂 Zelly 300일 파티! 친구 65마리 참석중 🐹</div>
+  <div id="title">🎂 Zelly 300일 파티! 친구 67마리 참석중 🐹</div>
   <div id="visitor"></div>
 </div>
-<div id="hint">드래그로 둘러보기 · 스크롤로 줌 · 햄스터 클릭!</div>
+<div id="hint">좌클릭 드래그: 회전 · 우클릭 드래그: 이동 · 스크롤: 줌 · 클릭: 메시지</div>
 <div id="zelly-bubble"><div id="zelly-msg"></div></div>
 <button id="muteBtn" title="음악 켜기/끄기">🎵</button>
 <div id="search-box">
@@ -189,6 +240,9 @@ const hamsters = [
   {name:"cham___kkae", msg:"젤리암 추카해 계속 행복만 하자~ 🌻🧡"},
   {name:"gerbil._.tall.e", msg:"젤리야 300일 튜카햄💘 넘넘 튜카햄🤍🤍🤍"},
   {name:"leebaksal", msg:"깍 박살이두 일단 추카말먼저 전해욥❤️"},
+  {name:"o55_world", msg:"젤리 생일투카햄 해삐햄스데이"},
+  {name:"hamcheese_25", msg:"젤리야 생일 축하해! 🐹"},
+  {name:"pearl_cre", msg:""},
 ];
 
 const container = document.getElementById('canvas-wrap');
@@ -472,6 +526,23 @@ function drawZelly(){
   return tc;
 }
 
+var texLoader=new THREE.TextureLoader();
+
+// Loading tracker
+var TOTAL_IMAGES = hamsters.length + 1; // +1 for zelly
+var loadedCount = 0;
+function onImageLoaded(){
+  loadedCount++;
+  var pct = Math.round(loadedCount / TOTAL_IMAGES * 100);
+  document.getElementById('ld-bar').style.width = pct + '%';
+  document.getElementById('ld-count').textContent = '친구들 불러오는 중... ' + loadedCount + ' / ' + TOTAL_IMAGES;
+  if(loadedCount >= TOTAL_IMAGES){
+    var ls = document.getElementById('loading-screen');
+    ls.classList.add('fade-out');
+    setTimeout(function(){ ls.style.display='none'; }, 950);
+  }
+}
+
 var zellySprite = (function(){
   var c2=document.createElement('canvas'); c2.width=512; c2.height=512;
   drawZelly();
@@ -479,12 +550,39 @@ var zellySprite = (function(){
   var tex=new THREE.CanvasTexture(c2);
   tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter; tex.generateMipmaps=false;
   var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
-  var sw=6.3, sh=5.04;
+  var sw=4.5, sh=3.6;
   sp.scale.set(sw, sh, 1);
   var groundY=sh*0.5;
   sp.position.set(0, groundY, 3.5);
   sp.userData={h:{name:'zelly_house',msg:'생파에 와줘서 고마오!'}, baseY:groundY, phase:0, sw:sw, sh:sh};
   scene.add(sp);
+  texLoader.load('images/zelly_house.png', function(imgTex){
+    var nc=document.createElement('canvas'); nc.width=512; nc.height=512;
+    var nx=nc.getContext('2d');
+    nx.drawImage(imgTex.image,0,0,512,512);
+    var grd=nx.createLinearGradient(20,372,492,490);
+    grd.addColorStop(0,'#b46010'); grd.addColorStop(0.5,'#e8a820'); grd.addColorStop(1,'#b46010');
+    nx.shadowColor='rgba(0,0,0,0.4)'; nx.shadowBlur=14; nx.shadowOffsetY=5;
+    nx.fillStyle=grd;
+    nx.beginPath();
+    nx.roundRect ? nx.roundRect(18,372,476,126,22) : nx.rect(18,372,476,126);
+    nx.fill();
+    nx.shadowColor='transparent'; nx.shadowBlur=0; nx.shadowOffsetY=0;
+    nx.fillStyle='white';
+    nx.font='bold 36px -apple-system,"Helvetica Neue",sans-serif';
+    nx.textAlign='center'; nx.textBaseline='middle';
+    nx.fillText('@zelly_house',256,416);
+    nx.font='bold 22px -apple-system,sans-serif';
+    nx.fillStyle='rgba(255,255,180,0.96)';
+    nx.fillText('🎂 300일 생일 파티 주인공 🎂',256,455);
+    var newTex=new THREE.CanvasTexture(nc);
+    newTex.minFilter=THREE.LinearFilter;
+    newTex.magFilter=THREE.LinearFilter;
+    newTex.generateMipmaps=false;
+    sp.material.map=newTex;
+    sp.material.needsUpdate=true;
+    onImageLoaded();
+  }, undefined, function(){ onImageLoaded(); });
   return sp;
 })();
 
@@ -535,6 +633,29 @@ hamsters.forEach(function(h,i){
   sp.userData={h:h, baseY:groundY, phase:Math.random()*Math.PI*2, sw:sw, sh:sh};
   scene.add(sp);
   hamObjs.push(sp);
+  texLoader.load('images/'+h.name+'.png', function(imgTex){
+    var nc=document.createElement('canvas'); nc.width=512; nc.height=512;
+    var nx=nc.getContext('2d');
+    nx.drawImage(imgTex.image,0,0,512,512);
+    nx.shadowColor='rgba(0,0,0,0.3)'; nx.shadowBlur=12; nx.shadowOffsetY=4;
+    nx.fillStyle='rgba(140,30,95,0.96)';
+    nx.beginPath();
+    nx.roundRect ? nx.roundRect(20,380,472,108,20) : nx.rect(20,380,472,108);
+    nx.fill();
+    nx.shadowColor='transparent'; nx.shadowBlur=0; nx.shadowOffsetY=0;
+    nx.fillStyle='white';
+    nx.font='bold 40px -apple-system,"Helvetica Neue",sans-serif';
+    nx.textAlign='center'; nx.textBaseline='middle';
+    var label=h.name.length>14 ? h.name.slice(0,13)+'…' : h.name;
+    nx.fillText(label,256,434);
+    var newTex=new THREE.CanvasTexture(nc);
+    newTex.minFilter=THREE.LinearFilter;
+    newTex.magFilter=THREE.LinearFilter;
+    newTex.generateMipmaps=false;
+    sp.material.map=newTex;
+    sp.material.needsUpdate=true;
+    onImageLoaded();
+  }, undefined, function(){ onImageLoaded(); });
 });
 
 // Search & zoom
@@ -629,7 +750,8 @@ function showBubble(x, y, h) {
   var el=document.createElement('div');
   el.className='bubble';
   el.innerHTML='<div class="bubble-name">@'+h.name+'</div><div class="bubble-msg">'+h.msg+'</div>';
-  el.style.left=Math.min(Math.max(x, 110), window.innerWidth-110)+'px';
+  var bMargin=Math.min(110,window.innerWidth*0.25);
+  el.style.left=Math.min(Math.max(x, bMargin), window.innerWidth-bMargin)+'px';
   el.style.top=y+'px';
   document.body.appendChild(el);
   activeBubble=el;
@@ -640,22 +762,60 @@ function showBubble(x, y, h) {
   }, 3500);
 }
 
-renderer.domElement.addEventListener('mousedown',function(e){drag=true;lx=e.clientX;ly=e.clientY;});
-renderer.domElement.addEventListener('touchstart',function(e){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;},{passive:true});
+renderer.domElement.addEventListener('mousedown',function(e){
+  if(e.button===2){ panDrag=true; panLx=e.clientX; panLy=e.clientY; }
+  else { drag=true; lx=e.clientX; ly=e.clientY; }
+});
+renderer.domElement.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+var panDrag=false, panLx=0, panLy=0;
+var pinchDist0=null, pinchMid0=null;
+renderer.domElement.addEventListener('touchstart',function(e){
+  if(e.touches.length===2){
+    pinchDist0=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    pinchMid0={x:(e.touches[0].clientX+e.touches[1].clientX)/2,y:(e.touches[0].clientY+e.touches[1].clientY)/2};
+    drag=false;
+  } else {
+    drag=true; lx=e.touches[0].clientX; ly=e.touches[0].clientY; pinchDist0=null; pinchMid0=null;
+  }
+},{passive:true});
 window.addEventListener('mousemove',function(e){
+  if(panDrag){
+    var dx=e.clientX-panLx, dy=e.clientY-panLy;
+    var spd=radius*0.008;
+    tLookX+=Math.cos(theta)*dx*spd; tLookZ-=Math.sin(theta)*dx*spd;
+    tLookX-=Math.sin(theta)*dy*spd; tLookZ-=Math.cos(theta)*dy*spd;
+    tLookX=Math.max(-22,Math.min(22,tLookX)); tLookZ=Math.max(-22,Math.min(12,tLookZ));
+    panLx=e.clientX; panLy=e.clientY; return;
+  }
   if(!drag)return;
   tTheta-=(e.clientX-lx)*0.008;
   tPhi=Math.max(0.05,Math.min(1.15,tPhi+(e.clientY-ly)*0.008));
   lx=e.clientX; ly=e.clientY;
 });
 window.addEventListener('touchmove',function(e){
+  if(e.touches.length===2&&pinchDist0!==null){
+    var dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    tRadius=Math.max(5,Math.min(32,tRadius-(dist-pinchDist0)*0.06));
+    pinchDist0=dist;
+    if(pinchMid0){
+      var mx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+      var my=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      var dx=mx-pinchMid0.x, dy=my-pinchMid0.y;
+      var spd=tRadius*0.008;
+      tLookX+=Math.cos(theta)*dx*spd; tLookZ-=Math.sin(theta)*dx*spd;
+      tLookX-=Math.sin(theta)*dy*spd; tLookZ-=Math.cos(theta)*dy*spd;
+      tLookX=Math.max(-22,Math.min(22,tLookX)); tLookZ=Math.max(-22,Math.min(12,tLookZ));
+      pinchMid0={x:mx,y:my};
+    }
+    return;
+  }
   if(!drag)return;
   tTheta-=(e.touches[0].clientX-lx)*0.01;
   tPhi=Math.max(0.05,Math.min(1.15,tPhi+(e.touches[0].clientY-ly)*0.01));
   lx=e.touches[0].clientX; ly=e.touches[0].clientY;
 },{passive:true});
-window.addEventListener('mouseup',function(){drag=false;});
-window.addEventListener('touchend',function(){drag=false;});
+window.addEventListener('mouseup',function(){drag=false; panDrag=false;});
+window.addEventListener('touchend',function(){drag=false; pinchDist0=null; pinchMid0=null;});
 renderer.domElement.addEventListener('wheel',function(e){tRadius=Math.max(5,Math.min(32,tRadius+e.deltaY*0.02));},{passive:true});
 
 renderer.domElement.addEventListener('click',function(e){
@@ -666,6 +826,49 @@ renderer.domElement.addEventListener('click',function(e){
   var hits=ray.intersectObjects(hamObjs);
   if(hits.length){
     showBubble(e.clientX, e.clientY, hits[0].object.userData.h);
+  }
+});
+
+// 더블탭: 햄스터 → 줌인+버블, 빈 공간 → 카메라 이동
+var lastTapTime=0, lastTapX=0, lastTapY=0;
+renderer.domElement.addEventListener('touchend',function(e){
+  if(e.changedTouches.length!==1) return;
+  var now=Date.now(), tx=e.changedTouches[0].clientX, ty=e.changedTouches[0].clientY;
+  var dt=now-lastTapTime;
+  if(dt<300 && Math.hypot(tx-lastTapX, ty-lastTapY)<44){
+    e.preventDefault();
+    lastTapTime=0;
+    var rect=renderer.domElement.getBoundingClientRect();
+    mouse.x=((tx-rect.left)/rect.width)*2-1;
+    mouse.y=-((ty-rect.top)/rect.height)*2+1;
+    ray.setFromCamera(mouse,camera);
+    var hits=ray.intersectObjects(hamObjs);
+    if(hits.length){
+      var found=hits[0].object;
+      if(zoomTarget) zoomTarget.scale.set(zoomTarget.userData.sw,zoomTarget.userData.sh,1);
+      if(zoomTimer) clearTimeout(zoomTimer);
+      zoomTarget=found;
+      found.scale.set(found.userData.sw*1.6,found.userData.sh*1.6,1);
+      tTheta=Math.atan2(found.position.x,found.position.z);
+      tPhi=0.26; tRadius=10;
+      tLookX=found.position.x*0.6; tLookY=found.position.y+0.5; tLookZ=found.position.z*0.6;
+      setTimeout(function(){showBubble(window.innerWidth/2,window.innerHeight*0.62,found.userData.h);},700);
+      zoomTimer=setTimeout(function(){
+        if(zoomTarget){zoomTarget.scale.set(zoomTarget.userData.sw,zoomTarget.userData.sh,1);zoomTarget=null;}
+        tRadius=20; tLookX=0; tLookY=3; tLookZ=0;
+      },5000);
+    } else {
+      var gPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+      var gPoint=new THREE.Vector3();
+      if(ray.ray.intersectPlane(gPlane,gPoint)){
+        tLookX=Math.max(-20,Math.min(20,gPoint.x));
+        tLookY=2;
+        tLookZ=Math.max(-20,Math.min(10,gPoint.z));
+        tRadius=Math.max(8,tRadius*0.72);
+      }
+    }
+  } else {
+    lastTapTime=now; lastTapX=tx; lastTapY=ty;
   }
 });
 
@@ -711,7 +914,8 @@ function animate(){
   if(zp.z<1){
     var bx=(zp.x+1)/2*window.innerWidth;
     var by=(-zp.y+1)/2*window.innerHeight;
-    bx=Math.max(120,Math.min(window.innerWidth-120,bx));
+    var zMargin=Math.min(120,window.innerWidth*0.28);
+    bx=Math.max(zMargin,Math.min(window.innerWidth-zMargin,bx));
     by=Math.max(70,Math.min(window.innerHeight-60,by));
     var bub=document.getElementById('zelly-bubble');
     bub.style.left=bx+'px'; bub.style.top=by+'px'; bub.style.display='block';
@@ -737,12 +941,20 @@ function animate(){
 }
 animate();
 
-window.addEventListener('resize',function(){
-  camera.aspect=window.innerWidth/window.innerHeight;
+if('ontouchstart' in window){
+  document.getElementById('hint').textContent='한 손가락: 회전 · 두 손가락: 이동+줌 · 탭: 메시지';
+}
+
+function onResize(){
+  var w=window.innerWidth;
+  var h=window.visualViewport?window.visualViewport.height:window.innerHeight;
+  camera.aspect=w/h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setSize(w,h);
   renderer.setPixelRatio(window.devicePixelRatio);
-});
+}
+window.addEventListener('resize',onResize);
+if(window.visualViewport) window.visualViewport.addEventListener('resize',onResize);
 
 // ===== BGM: Happy Birthday (Web Audio API) =====
 var audioCtx=null, masterGain=null;
