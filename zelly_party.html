@@ -685,16 +685,26 @@ function searchHamster(){
   // scale up found hamster
   found.scale.set(found.userData.sw*1.6, found.userData.sh*1.6, 1);
 
-  // move camera to face hamster
+  // 키보드 닫고 나서 카메라 이동 (모바일 키보드가 뷰포트 가리는 문제 방지)
+  document.getElementById('search-input').blur();
+
   var hx=found.position.x, hz=found.position.z, hy=found.position.y;
-  tTheta=Math.atan2(hx, hz);
+  var dist=Math.sqrt(hx*hx+hz*hz);
+  var viewDist=8; // 햄스터에서 몇 유닛 앞에 카메라 위치
+  if(dist>viewDist){
+    tTheta=Math.atan2(hx,hz); // 원점~햄스터 사이에 카메라
+    tRadius=(dist-viewDist)/Math.cos(0.26);
+  } else {
+    tTheta=Math.atan2(hx,hz)+Math.PI; // 가까우면 반대편에서
+    tRadius=viewDist;
+  }
   tPhi=0.26;
-  tRadius=10;
-  tLookX=hx*0.6; tLookY=hy+0.5; tLookZ=hz*0.6;
+  tLookX=hx; tLookY=hy+0.5; tLookZ=hz;
 
   // show bubble after camera settles
   setTimeout(function(){
-    showBubble(window.innerWidth/2, window.innerHeight*0.62, found.userData.h);
+    var vh=window.visualViewport?window.visualViewport.height:window.innerHeight;
+    showBubble(window.innerWidth/2, vh*0.45, found.userData.h);
   }, 700);
 
   // reset after 5s
@@ -849,10 +859,13 @@ renderer.domElement.addEventListener('touchend',function(e){
       if(zoomTimer) clearTimeout(zoomTimer);
       zoomTarget=found;
       found.scale.set(found.userData.sw*1.6,found.userData.sh*1.6,1);
-      tTheta=Math.atan2(found.position.x,found.position.z);
+      tTheta=Math.atan2(found.position.x,found.position.z)+Math.PI;
       tPhi=0.26; tRadius=10;
-      tLookX=found.position.x*0.6; tLookY=found.position.y+0.5; tLookZ=found.position.z*0.6;
-      setTimeout(function(){showBubble(window.innerWidth/2,window.innerHeight*0.62,found.userData.h);},700);
+      tLookX=found.position.x; tLookY=found.position.y+0.5; tLookZ=found.position.z;
+      setTimeout(function(){
+        var vh=window.visualViewport?window.visualViewport.height:window.innerHeight;
+        showBubble(window.innerWidth/2,vh*0.45,found.userData.h);
+      },700);
       zoomTimer=setTimeout(function(){
         if(zoomTarget){zoomTarget.scale.set(zoomTarget.userData.sw,zoomTarget.userData.sh,1);zoomTarget=null;}
         tRadius=20; tLookX=0; tLookY=3; tLookZ=0;
