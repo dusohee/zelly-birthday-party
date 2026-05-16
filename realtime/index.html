@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎂 Zelly 파티 - 실시간 입장!</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: linear-gradient(to bottom, #0d47a1 0%, #1565c0 15%, #1e88e5 35%, #64b5f6 60%, #b3e0f7 80%, #dff0fb 100%);
+  overflow:hidden; font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+}
+#canvas-wrap { width:100vw; height:100vh; }
+
+/* 입장 화면 */
+#join-screen {
+  position:fixed; inset:0; z-index:200;
+  background:rgba(13,71,161,0.82); backdrop-filter:blur(8px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+}
+#join-screen h1 { font-size:30px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.3); }
+#join-screen p  { font-size:15px; color:rgba(255,255,255,0.85); }
+#join-input {
+  padding:13px 22px; border-radius:28px; border:2px solid #e8a0c8;
+  font-size:16px; width:300px; outline:none; text-align:center;
+  background:rgba(255,240,250,0.97); font-family:inherit;
+}
+#join-btn {
+  padding:13px 40px; border-radius:28px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#ff6eb0,#a03070);
+  color:white; font-size:16px; font-weight:700; font-family:inherit;
+  box-shadow:0 4px 20px rgba(160,48,112,0.5);
+  transition:transform 0.12s, box-shadow 0.12s;
+}
+#join-btn:hover { transform:translateY(-2px); box-shadow:0 6px 24px rgba(160,48,112,0.6); }
+#join-error { font-size:13px; color:#ffaaaa; min-height:18px; }
+#join-section-label { font-size:12px; color:rgba(255,255,255,0.6); letter-spacing:0.5px; align-self:center; }
+.type-row { display:flex; gap:10px; justify-content:center; }
+.type-btn {
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:10px 16px; border-radius:16px; border:2px solid transparent;
+  background:rgba(255,255,255,0.12); cursor:pointer; color:white;
+  font-size:11px; font-weight:700; transition:all 0.15s; user-select:none;
+}
+.type-btn:hover { background:rgba(255,255,255,0.22); }
+.type-btn.active { border-color:#ffaadd; background:rgba(255,180,220,0.22); }
+.type-btn .t-emoji { font-size:30px; line-height:1; }
+#img-upload-wrap { display:flex; flex-direction:column; align-items:center; gap:7px; }
+#img-label {
+  padding:8px 20px; border-radius:20px; border:1.5px dashed rgba(255,255,255,0.4);
+  color:rgba(255,255,255,0.75); font-size:13px; cursor:pointer; font-family:inherit;
+  background:rgba(255,255,255,0.08); transition:all 0.15s;
+}
+#img-label:hover { background:rgba(255,255,255,0.18); color:#fff; }
+#img-preview-wrap {
+  display:none; flex-direction:column; align-items:center; gap:5px;
+}
+#img-preview {
+  width:76px; height:76px; border-radius:50%; object-fit:cover;
+  border:2.5px solid #ffaadd; box-shadow:0 2px 12px rgba(200,80,150,0.4);
+}
+#img-clear {
+  font-size:11px; color:rgba(255,180,180,0.9); cursor:pointer; background:none;
+  border:none; font-family:inherit;
+}
+#img-clear:hover { color:#fff; }
+#img-error { font-size:12px; color:#ffbbbb; min-height:15px; }
+
+/* UI 오버레이 */
+#title-wrap {
+  position:fixed; top:18px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:6px; z-index:10;
+}
+#title {
+  background:rgba(255,240,250,0.93); border:1.5px solid #e8a0c8;
+  border-radius:24px; padding:10px 28px;
+  font-size:18px; font-weight:700; color:#a03070; letter-spacing:1px;
+  box-shadow:0 2px 16px rgba(200,100,160,0.2); white-space:nowrap;
+}
+#count-row {
+  display:flex; gap:8px; align-items:center; justify-content:center;
+}
+#live-count {
+  background:rgba(255,80,120,0.92); border-radius:20px;
+  padding:5px 16px; font-size:13px; color:white; font-weight:700;
+  box-shadow:0 2px 10px rgba(200,40,80,0.3); display:none;
+  cursor:pointer; user-select:none; transition:filter 0.15s;
+}
+#live-count:hover { filter:brightness(1.12); }
+#total-count {
+  background:rgba(100,170,255,0.92); border-radius:20px;
+  padding:5px 16px; font-size:13px; color:white; font-weight:700;
+  box-shadow:0 2px 10px rgba(60,120,220,0.3); display:none;
+}
+#guest-panel {
+  background:rgba(255,240,250,0.97); border:1.5px solid #e8a0c8;
+  border-radius:18px; padding:14px 20px; min-width:200px; max-width:280px;
+  box-shadow:0 6px 24px rgba(200,100,160,0.28);
+  display:none; flex-direction:column; gap:8px;
+  max-height:260px; overflow-y:auto;
+}
+#guest-panel.open { display:flex; }
+#guest-panel-title {
+  font-size:12px; color:#c060a0; font-weight:700; text-align:center;
+  border-bottom:1px solid #f0c0e0; padding-bottom:7px; margin-bottom:2px;
+}
+.guest-item {
+  font-size:13px; color:#a03070; font-weight:600;
+  display:flex; align-items:center; gap:6px;
+}
+.guest-item::before { content:'🟢'; font-size:10px; }
+#hint {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:rgba(255,255,255,0.88); border-radius:14px;
+  padding:7px 20px; font-size:13px; color:#999;
+  border:0.5px solid rgba(0,0,0,0.1); z-index:10;
+}
+.bubble {
+  position:fixed; pointer-events:none; z-index:100;
+  background:rgba(255,240,250,0.97); border:2px solid #e8a0c8;
+  border-radius:16px; padding:10px 14px; max-width:220px; min-width:100px;
+  box-shadow:0 4px 20px rgba(200,100,160,0.28);
+  transform:translateX(-50%) translateY(calc(-100% - 14px));
+  opacity:0; transition:opacity 0.2s ease;
+}
+.bubble.show { opacity:1; }
+.bubble::after {
+  content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%);
+  border:10px solid transparent; border-top-color:rgba(255,240,250,0.97); border-bottom:none;
+}
+.bubble::before {
+  content:''; position:absolute; bottom:-13px; left:50%; transform:translateX(-50%);
+  border:10px solid transparent; border-top-color:#e8a0c8; border-bottom:none;
+}
+.bubble-name { font-weight:700; font-size:13px; color:#a03070; margin-bottom:4px; text-align:center; }
+.bubble-msg  { font-size:12px; color:#555; line-height:1.55; word-break:keep-all; text-align:center; }
+
+/* 입장 알림 토스트 */
+#toast {
+  position:fixed; bottom:60px; left:50%; transform:translateX(-50%);
+  background:rgba(255,240,250,0.97); border:1.5px solid #e8a0c8;
+  border-radius:20px; padding:9px 22px; font-size:14px; color:#a03070;
+  font-weight:700; box-shadow:0 4px 16px rgba(200,100,160,0.25);
+  z-index:50; opacity:0; transition:opacity 0.3s; pointer-events:none;
+  white-space:nowrap;
+}
+#toast.show { opacity:1; }
+
+#zelly-bubble {
+  position:fixed; pointer-events:none; z-index:30;
+  transform:translateX(-50%) translateY(calc(-100% - 18px));
+  background:linear-gradient(135deg,rgba(255,240,250,0.98),rgba(255,225,245,0.98));
+  border:2px solid #e060a8; border-radius:20px;
+  padding:11px 20px; white-space:nowrap;
+  box-shadow:0 6px 28px rgba(200,80,150,0.35);
+}
+#zelly-bubble::after {
+  content:''; position:absolute; bottom:-12px; left:50%; transform:translateX(-50%);
+  border:12px solid transparent; border-top-color:rgba(255,225,245,0.98); border-bottom:none;
+}
+#zelly-bubble::before {
+  content:''; position:absolute; bottom:-15px; left:50%; transform:translateX(-50%);
+  border:12px solid transparent; border-top-color:#e060a8; border-bottom:none;
+}
+#zelly-msg { font-size:14px; font-weight:700; color:#a03070; transition:opacity 0.25s ease; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<!-- 입장 화면 -->
+<div id="join-screen">
+  <h1>🎂 Zelly 파티에 오신 걸 환영해요!</h1>
+  <p>인스타 아이디를 입력하면 파티장에 내 햄스터로 등장해요 🐹</p>
+  <input id="join-input" type="text" placeholder="인스타 아이디 (@ 빼고)" maxlength="30" autocomplete="off" />
+  <div id="join-error"></div>
+
+  <div id="join-section-label">햄스터 종류 선택</div>
+  <div class="type-row">
+    <div class="type-btn active" data-type="golden">
+      <span class="t-emoji">🐹</span><span>골든 햄스터</span>
+    </div>
+    <div class="type-btn" data-type="robo">
+      <span class="t-emoji">🤍</span><span>로보로프스키</span>
+    </div>
+    <div class="type-btn" data-type="gerbil">
+      <span class="t-emoji">🏜️</span><span>사막쥐</span>
+    </div>
+  </div>
+
+  <div id="img-upload-wrap">
+    <label id="img-label" for="img-file">📎 내 사진 직접 올리기 (선택 · 200KB 이하)</label>
+    <input id="img-file" type="file" accept="image/*" style="display:none">
+    <div id="img-preview-wrap">
+      <img id="img-preview" alt="미리보기">
+      <button id="img-clear">✕ 사진 제거</button>
+    </div>
+    <div id="img-error"></div>
+  </div>
+
+  <button id="join-btn">🎉 파티 입장하기!</button>
+</div>
+
+<div id="canvas-wrap"></div>
+<div id="title-wrap">
+  <div id="title">🎂 Zelly 300일 파티!</div>
+  <div id="count-row">
+    <div id="live-count">🔴 LIVE · 0명 파티 중 ▾</div>
+    <div id="total-count">👥 0명 다녀감</div>
+  </div>
+  <div id="guest-panel">
+    <div id="guest-panel-title">지금 파티 중인 친구들</div>
+  </div>
+</div>
+<div id="hint">드래그로 둘러보기 · 스크롤로 줌 · 햄스터 클릭!</div>
+<div id="zelly-bubble"><div id="zelly-msg"></div></div>
+<div id="toast"></div>
+
+<!-- Three.js -->
+<script src="../three.min.js"></script>
+
+<!-- Firebase SDK (모듈) -->
+<script type="module">
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, onChildAdded, onChildRemoved, onDisconnect, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── Firebase 초기화 ───────────────────────────────────────────────
+const app = initializeApp({
+  apiKey:            "AIzaSyCnuD3Z25CRC618nfwuEH0YBFH-Cn7DHc4",
+  authDomain:        "zelly-birthday.firebaseapp.com",
+  databaseURL:       "https://zelly-birthday-default-rtdb.firebaseio.com",
+  projectId:         "zelly-birthday",
+  storageBucket:     "zelly-birthday.firebasestorage.app",
+  messagingSenderId: "64026856909",
+  appId:             "1:64026856909:web:8ceef7a5d1b6bfca1c4884"
+});
+const db = getDatabase(app);
+const guestsRef   = ref(db, "guests");
+const visitorsRef = ref(db, "visitors");
+
+// ── Three.js 씬 ───────────────────────────────────────────────────
+const container = document.getElementById('canvas-wrap');
+const W = window.innerWidth, H = window.innerHeight;
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setSize(W, H);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.setClearColor(0x000000, 0);
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xb3e0f7, 60, 110);
+const camera = new THREE.PerspectiveCamera(60, W/H, 0.1, 120);
+camera.position.set(0, 7, 20);
+camera.lookAt(0, 2, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const sunLight = new THREE.DirectionalLight(0xfff8e0, 1.3);
+sunLight.position.set(12,22,8); sunLight.castShadow=true; scene.add(sunLight);
+
+const rng = (a,b) => a + Math.random()*(b-a);
+
+function box(w,h,d,x,y,z,col){
+  var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
+  m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; scene.add(m); return m;
+}
+function cyl(rt,rb,h,x,y,z,col,seg=24){
+  var m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),new THREE.MeshLambertMaterial({color:col}));
+  m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; scene.add(m); return m;
+}
+function sph(r,x,y,z,col,emissive,emInt){
+  var mat={color:col};
+  if(emissive){mat.emissive=emissive; mat.emissiveIntensity=emInt||0.8;}
+  var m=new THREE.Mesh(new THREE.SphereGeometry(r,12,12),new THREE.MeshLambertMaterial(mat));
+  m.position.set(x,y,z); m.castShadow=true; scene.add(m); return m;
+}
+
+// 잔디
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshLambertMaterial({color:0x5cb85c}));
+ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+
+// 태양
+var sunMesh=sph(2.2,16,20,-18,0xffee22,0xffcc00,1.0);
+var sunGlow=new THREE.PointLight(0xffeeaa,0.5,80); sunGlow.position.set(16,20,-18); scene.add(sunGlow);
+
+// 구름
+function makeCloud(cx,cy,cz,sc=1){
+  [[0,0,0,1.2],[1.4,0.2,0,0.9],[-1.3,0.3,0,0.85],[0.6,0.6,0.7,0.75],[-0.5,0.5,-0.6,0.7]].forEach(p=>{
+    var c=new THREE.Mesh(new THREE.SphereGeometry(p[3]*sc,10,10),new THREE.MeshLambertMaterial({color:0xffffff}));
+    c.position.set(cx+p[0]*sc,cy+p[1]*sc,cz+p[2]*sc); scene.add(c);
+  });
+}
+makeCloud(-10,16,-20,1.3); makeCloud(8,18,-22,1.0); makeCloud(20,14,-16,1.1);
+makeCloud(-18,13,-13,0.9); makeCloud(0,20,-28,1.4); makeCloud(12,17,-10,0.8);
+
+// 나무
+function makeTree(x,z){
+  cyl(0.3,0.38,4.0,x,2.0,z,0x8B5E3C);
+  sph(2.1,x,4.9,z,0x2d8a2d); sph(1.6,x+0.4,6.1,z+0.2,0x3aaa3a); sph(1.1,x,7.1,z,0x44bb44);
+}
+makeTree(-24,-12); makeTree(24,-10); makeTree(-22,10); makeTree(23,11);
+makeTree(-10,-24); makeTree(10,-24); makeTree(0,-26); makeTree(-27,2); makeTree(27,3);
+makeTree(-20,-20); makeTree(20,-20);
+
+// 꽃
+var flowerCols=[0xff6699,0xff99cc,0xffcc00,0xff4488,0xcc44ff,0xff8844,0x44ccff,0xffee44,0xff4444,0x44ff88];
+for(var i=0;i<200;i++){
+  var fx=rng(-22,22),fz=rng(-22,12);
+  cyl(0.04,0.04,0.35,fx,0.18,fz,0x55aa44,6); sph(0.14,fx,0.42,fz,flowerCols[i%flowerCols.length]);
+}
+
+// 케이크 테이블
+box(3.5,0.14,2.2,0,1.07,0,0xd4956a);
+[[-1.55,0.9],[1.55,0.9],[-1.55,-0.9],[1.55,-0.9]].forEach(p=>box(0.15,1.1,0.15,p[0],0.5,p[1],0xb8785a));
+var tcloth=new THREE.Mesh(new THREE.PlaneGeometry(3.6,2.3),new THREE.MeshLambertMaterial({color:0xfce8f5,side:THREE.DoubleSide}));
+tcloth.rotation.x=-Math.PI/2; tcloth.position.set(0,1.15,0); scene.add(tcloth);
+
+// 케이크
+cyl(1.15,1.15,0.85,0,1.57,0,0xffcccc); cyl(1.17,1.17,0.1,0,2.01,0,0xffffff);
+for(var i=0;i<8;i++){var a=i/8*Math.PI*2; sph(0.12,Math.cos(a)*1.06,2.08,Math.sin(a)*1.06,0xff6699);}
+cyl(0.85,0.85,0.72,0,2.45,0,0xffddee); cyl(0.87,0.87,0.1,0,2.83,0,0xffffff);
+for(var i=0;i<6;i++){var a=i/6*Math.PI*2; sph(0.10,Math.cos(a)*0.78,2.89,Math.sin(a)*0.78,0xff88cc);}
+cyl(0.58,0.58,0.58,0,3.16,0,0xffeef8); cyl(0.06,0.06,0.52,0,3.6,0,0xff99cc);
+var flameMesh=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8),new THREE.MeshLambertMaterial({color:0xffcc44,emissive:0xffaa00,emissiveIntensity:1.0}));
+flameMesh.position.set(0,3.91,0); scene.add(flameMesh);
+var cLight=new THREE.PointLight(0xffddaa,2.0,8); cLight.position.set(0,3.95,0); scene.add(cLight);
+
+// 선물 상자
+function makePresent(x,z,col,rib){
+  box(0.92,0.72,0.72,x,0.5,z,col); box(0.94,0.09,0.74,x,0.87,z,rib);
+  box(0.09,0.74,0.74,x,0.5,z,rib); sph(0.14,x,0.97,z,rib);
+}
+makePresent(-3.2,0.5,0xff6688,0xffffff); makePresent(3.0,0.4,0x6699ff,0xffee00);
+makePresent(-2.2,-1.9,0xffcc44,0xff4499); makePresent(2.5,-1.7,0x88ddaa,0xff6644);
+makePresent(-4.2,-0.6,0xcc88ff,0xffffff); makePresent(3.9,-0.8,0xff9944,0xffffff);
+
+// 풍선
+var bCols=[0xff4466,0x44aaff,0xffcc00,0x88ff44,0xff88cc,0x44ddff,0xff8844,0xcc44ff];
+var balloonObjs=[];
+for(var i=0;i<24;i++){
+  var s=0.55+Math.random()*0.55;
+  var bg=new THREE.SphereGeometry(0.72*s,14,14); bg.scale(1,1.28,1);
+  var b=new THREE.Mesh(bg,new THREE.MeshLambertMaterial({color:bCols[i%bCols.length],transparent:true,opacity:0.88}));
+  var bx=rng(-16,16),by=4+Math.random()*9,bz=rng(-15,7);
+  b.position.set(bx,by,bz); b.userData={baseY:by,phase:Math.random()*Math.PI*2};
+  scene.add(b); balloonObjs.push(b);
+  var pts=[b.position.clone(),new THREE.Vector3(bx+rng(-0.3,0.3),by-2.2*s,bz)];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xbbbbbb})));
+}
+
+// 배너
+cyl(0.09,0.09,6,-5,3,-17,0xd4a574); cyl(0.09,0.09,6,5,3,-17,0xd4a574);
+var bannerMesh=new THREE.Mesh(new THREE.PlaneGeometry(10,0.9),new THREE.MeshLambertMaterial({color:0xff88cc,side:THREE.DoubleSide}));
+bannerMesh.position.set(0,5.5,-17); scene.add(bannerMesh);
+
+// 콘페티
+var confettiColors=[0xff6699,0xffcc00,0x44ccff,0xff88cc,0xcc44ff,0xff8844,0x55ddaa,0xffee44,0xff4466,0xaaeeff];
+var confetti=[];
+for(var i=0;i<220;i++){
+  var w=0.12+Math.random()*0.13,h=0.06+Math.random()*0.08;
+  var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,0.015),new THREE.MeshLambertMaterial({color:confettiColors[i%confettiColors.length],side:THREE.DoubleSide}));
+  m.position.set(rng(-24,24),rng(-2,30),rng(-24,12));
+  m.rotation.set(Math.random()*Math.PI*2,Math.random()*Math.PI*2,Math.random()*Math.PI*2);
+  m.userData={vy:-(0.03+Math.random()*0.055),vx:rng(-0.015,0.015),vz:rng(-0.015,0.015),rx:rng(-0.03,0.03),ry:rng(-0.02,0.02),rz:rng(-0.045,0.045),swayAmp:rng(0.006,0.02),swayFreq:rng(0.5,1.8),swayPhase:Math.random()*Math.PI*2};
+  scene.add(m); confetti.push(m);
+}
+
+// ── 햄스터 스프라이트 그리기 ──────────────────────────────────────
+var tc=document.createElement('canvas'); tc.width=512; tc.height=512;
+var tx=tc.getContext('2d');
+
+var HAM_COLORS={
+  golden:{ belly:'rgba(252,228,242,0.95)', body:'#f5c08a', cheek:'#e8a870', earOut:'#c07840', earIn:'#f0a090' },
+  robo:  { belly:'rgba(248,244,238,0.95)', body:'#d4c4a8', cheek:'#c0b090', earOut:'#a89070', earIn:'#f0c0b0' },
+  gerbil:{ belly:'rgba(240,224,190,0.95)', body:'#c8a060', cheek:'#b08040', earOut:'#906030', earIn:'#e09080' }
+};
+
+function drawHam(name, isLive=false, hamType='golden'){
+  var C=HAM_COLORS[hamType]||HAM_COLORS.golden;
+  tx.clearRect(0,0,512,512);
+  tx.fillStyle=C.belly;
+  tx.beginPath(); tx.ellipse(256,320,208,152,0,0,Math.PI*2); tx.fill();
+  tx.fillStyle=C.body;
+  tx.beginPath(); tx.ellipse(256,228,136,128,0,0,Math.PI*2); tx.fill();
+  tx.fillStyle=C.cheek;
+  tx.beginPath(); tx.ellipse(140,252,68,52,0.3,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.ellipse(372,252,68,52,-0.3,0,Math.PI*2); tx.fill();
+  tx.fillStyle=C.earOut;
+  tx.beginPath(); tx.arc(180,112,36,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(332,112,36,0,Math.PI*2); tx.fill();
+  tx.fillStyle=C.earIn;
+  tx.beginPath(); tx.arc(180,112,20,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(332,112,20,0,Math.PI*2); tx.fill();
+  // 로보로프스키 눈썹 흰줄
+  if(hamType==='robo'){
+    tx.fillStyle='rgba(255,255,255,0.7)';
+    tx.beginPath(); tx.ellipse(200,195,22,8,-0.3,0,Math.PI*2); tx.fill();
+    tx.beginPath(); tx.ellipse(312,195,22,8,0.3,0,Math.PI*2); tx.fill();
+  }
+  tx.fillStyle='#1a1a1a';
+  tx.beginPath(); tx.arc(200,216,18,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(312,216,18,0,Math.PI*2); tx.fill();
+  tx.fillStyle='white';
+  tx.beginPath(); tx.arc(208,208,8,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(320,208,8,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#f0a0b0';
+  tx.beginPath(); tx.arc(256,264,16,0,Math.PI*2); tx.fill();
+  tx.shadowColor='rgba(0,0,0,0.3)'; tx.shadowBlur=12; tx.shadowOffsetY=4;
+  tx.fillStyle=isLive?'rgba(30,140,60,0.96)':'rgba(140,30,95,0.96)';
+  tx.beginPath();
+  tx.roundRect?tx.roundRect(20,380,472,108,20):tx.rect(20,380,472,108);
+  tx.fill();
+  tx.shadowColor='transparent'; tx.shadowBlur=0; tx.shadowOffsetY=0;
+  tx.fillStyle='white';
+  tx.font='bold 40px -apple-system,"Helvetica Neue",sans-serif';
+  tx.textAlign='center'; tx.textBaseline='middle';
+  tx.fillText((name.length>14?name.slice(0,13)+'…':name), 256, 424);
+  if(isLive){
+    tx.font='bold 22px sans-serif'; tx.fillStyle='rgba(180,255,180,0.96)';
+    tx.fillText('🟢 지금 파티 중!', 256, 462);
+  }
+}
+
+function drawHamWithImage(name, imageDataURL, callback){
+  var img=new Image();
+  img.onload=function(){
+    tx.clearRect(0,0,512,512);
+    tx.save();
+    tx.beginPath(); tx.arc(256,210,168,0,Math.PI*2); tx.clip();
+    tx.drawImage(img, 88,42,336,336);
+    tx.restore();
+    // 원형 테두리
+    tx.strokeStyle='rgba(255,255,255,0.6)'; tx.lineWidth=8;
+    tx.beginPath(); tx.arc(256,210,168,0,Math.PI*2); tx.stroke();
+    // 이름 뱃지
+    tx.shadowColor='rgba(0,0,0,0.3)'; tx.shadowBlur=12; tx.shadowOffsetY=4;
+    tx.fillStyle='rgba(30,140,60,0.96)';
+    tx.beginPath();
+    tx.roundRect?tx.roundRect(20,390,472,108,20):tx.rect(20,390,472,108);
+    tx.fill();
+    tx.shadowColor='transparent'; tx.shadowBlur=0; tx.shadowOffsetY=0;
+    tx.fillStyle='white';
+    tx.font='bold 40px -apple-system,"Helvetica Neue",sans-serif';
+    tx.textAlign='center'; tx.textBaseline='middle';
+    tx.fillText((name.length>14?name.slice(0,13)+'…':name), 256, 434);
+    tx.font='bold 22px sans-serif'; tx.fillStyle='rgba(180,255,180,0.96)';
+    tx.fillText('🟢 지금 파티 중!', 256, 472);
+    callback();
+  };
+  img.onerror=function(){ drawHam(name,true,'golden'); callback(); };
+  img.src=imageDataURL;
+}
+
+function drawZelly(){
+  tx.clearRect(0,0,512,512);
+  tx.fillStyle='rgba(255,215,238,0.97)';
+  tx.beginPath(); tx.ellipse(256,318,212,158,0,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#f8c890';
+  tx.beginPath(); tx.ellipse(256,210,142,134,0,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#f0926e';
+  tx.beginPath(); tx.ellipse(132,240,76,57,0.3,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.ellipse(380,240,76,57,-0.3,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#c07840';
+  tx.beginPath(); tx.arc(176,96,40,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(336,96,40,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#f09080';
+  tx.beginPath(); tx.arc(176,96,23,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(336,96,23,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#1a1a1a';
+  tx.beginPath(); tx.arc(196,200,21,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(316,200,21,0,Math.PI*2); tx.fill();
+  tx.fillStyle='white';
+  tx.beginPath(); tx.arc(204,191,10,0,Math.PI*2); tx.fill();
+  tx.beginPath(); tx.arc(324,191,10,0,Math.PI*2); tx.fill();
+  tx.fillStyle='#f090a8'; tx.beginPath(); tx.arc(256,248,18,0,Math.PI*2); tx.fill();
+  tx.save(); tx.translate(256,74);
+  tx.fillStyle='#ff3399'; tx.beginPath(); tx.moveTo(0,-88); tx.lineTo(-50,0); tx.lineTo(50,0); tx.closePath(); tx.fill();
+  tx.strokeStyle='#ffee00'; tx.lineWidth=6;
+  for(var i=1;i<4;i++){var ly=-88+(88/4)*i;var hw=50*(88/4*i/88);tx.beginPath();tx.moveTo(-hw,ly-(88-88/4*i));tx.lineTo(hw,ly-(88-88/4*i));tx.stroke();}
+  tx.fillStyle='#ffee00'; tx.beginPath(); tx.arc(0,-90,16,0,Math.PI*2); tx.fill();
+  tx.restore();
+  var grd=tx.createLinearGradient(20,372,492,490);
+  grd.addColorStop(0,'#b46010'); grd.addColorStop(0.5,'#e8a820'); grd.addColorStop(1,'#b46010');
+  tx.shadowColor='rgba(0,0,0,0.4)'; tx.shadowBlur=14; tx.shadowOffsetY=5;
+  tx.fillStyle=grd;
+  tx.beginPath();
+  tx.roundRect ? tx.roundRect(18,372,476,126,22) : tx.rect(18,372,476,126);
+  tx.fill();
+  tx.shadowColor='transparent'; tx.shadowBlur=0; tx.shadowOffsetY=0;
+  tx.fillStyle='white';
+  tx.font='bold 36px -apple-system,sans-serif'; tx.textAlign='center'; tx.textBaseline='middle';
+  tx.fillText('@zelly_house', 256, 416);
+  tx.font='bold 22px sans-serif'; tx.fillStyle='rgba(255,255,180,0.96)';
+  tx.fillText('🎂 300일 생일 파티 주인공 🎂', 256, 455);
+}
+
+// Zelly 스프라이트
+var zellySprite=(function(){
+  var c2=document.createElement('canvas'); c2.width=512; c2.height=512;
+  drawZelly(); c2.getContext('2d').drawImage(tc,0,0);
+  var tex=new THREE.CanvasTexture(c2);
+  tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
+  var sw=6.3,sh=5.04;
+  sp.scale.set(sw,sh,1); sp.position.set(0,sh*0.5,3.5);
+  sp.userData={h:{name:'zelly_house',msg:'생파에 와줘서 고마오!'},baseY:sh*0.5,phase:0,sw:sw,sh:sh};
+  scene.add(sp); return sp;
+})();
+
+// ── 실시간 게스트 스프라이트 관리 ────────────────────────────────
+var liveSprites={};   // { firebaseKey: THREE.Sprite }
+var allLivePos=[];    // 배치된 위치 목록 (겹침 방지)
+
+function buildLiveSprite(name, x, z){
+  var c2=document.createElement('canvas'); c2.width=512; c2.height=512;
+  c2.getContext('2d').drawImage(tc,0,0);
+  var tex=new THREE.CanvasTexture(c2);
+  tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+  var sw=3.0, sh=2.4, groundY=sh*0.5;
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
+  sp.scale.set(0.01,0.01,1);
+  sp.position.set(x, groundY+6, z);
+  sp.userData={
+    h:{name:name, msg:'🟢 지금 파티 참여 중이에요!'},
+    baseY:groundY, phase:Math.random()*Math.PI*2,
+    sw:sw, sh:sh, entering:true, enterT:0
+  };
+  scene.add(sp);
+  return sp;
+}
+
+function addLiveGuest(key, g){
+  if(!g||liveSprites[key]) return;
+  var pos=[g.x, g.z];
+  allLivePos.push(pos);
+  function spawn(){
+    var sp=buildLiveSprite(g.name, g.x, g.z);
+    liveSprites[key]={sprite:sp, pos:pos};
+    showToast('🐹 @'+g.name+' 님이 파티에 입장했어요!');
+    if(document.getElementById('guest-panel').classList.contains('open')) updateGuestPanel();
+  }
+  if(g.imageData){
+    drawHamWithImage(g.name, g.imageData, spawn);
+  } else {
+    drawHam(g.name, true, g.hamType||'golden');
+    spawn();
+  }
+}
+
+function findFreePos(){
+  var MIN_DIST=4.5, MAX_TRY=150;
+  for(var a=0;a<MAX_TRY;a++){
+    var x=rng(-20,20), z=rng(-20,10);
+    if(Math.sqrt(x*x+z*z)<6.5) continue;
+    var ok=true;
+    for(var j=0;j<allLivePos.length;j++){
+      var dx=x-allLivePos[j][0], dz=z-allLivePos[j][1];
+      if(Math.sqrt(dx*dx+dz*dz)<MIN_DIST){ok=false;break;}
+    }
+    if(ok) return [x,z];
+  }
+  return [rng(-20,20), rng(-20,10)];
+}
+
+// 토스트 알림
+var toastTimer=null;
+function showToast(msg){
+  var el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.classList.remove('show');}, 3500);
+}
+
+// ── Firebase 실시간 리스너 ────────────────────────────────────────
+onChildAdded(guestsRef, (snapshot)=>{
+  addLiveGuest(snapshot.key, snapshot.val());
+});
+
+onChildRemoved(guestsRef, (snapshot)=>{
+  var key=snapshot.key;
+  if(!liveSprites[key]) return;
+  var sp=liveSprites[key].sprite;
+  sp.userData.leaving=true;
+  var idx=allLivePos.indexOf(liveSprites[key].pos);
+  if(idx>-1) allLivePos.splice(idx,1);
+  delete liveSprites[key];
+  showToast('👋 @'+sp.userData.h.name+' 님이 파티를 떠났어요');
+  if(document.getElementById('guest-panel').classList.contains('open')) updateGuestPanel();
+});
+
+// 게스트 패널 갱신
+function updateGuestPanel(){
+  var panel=document.getElementById('guest-panel');
+  var title=document.getElementById('guest-panel-title');
+  var names=Object.values(liveSprites).map(v=>v.sprite.userData.h.name);
+  // 기존 아이템 제거 (title 제외)
+  Array.from(panel.querySelectorAll('.guest-item')).forEach(el=>el.remove());
+  if(names.length===0){
+    var empty=document.createElement('div');
+    empty.className='guest-item'; empty.style.color='#ccc'; empty.style.justifyContent='center';
+    empty.textContent='아직 아무도 없어요 😢';
+    empty.style.cssText+=';color:#ccc;justify-content:center;';
+    empty.classList.remove(); empty.setAttribute('class','');
+    empty.style.fontSize='12px'; empty.style.color='#ccc'; empty.style.textAlign='center';
+    panel.appendChild(empty);
+  } else {
+    names.forEach(name=>{
+      var item=document.createElement('div');
+      item.className='guest-item';
+      item.textContent='@'+name;
+      panel.appendChild(item);
+    });
+  }
+  title.textContent='지금 파티 중인 친구들 ('+names.length+'명)';
+}
+
+// 라이브 카운트 업데이트
+onValue(guestsRef, (snapshot)=>{
+  var count=snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+  var el=document.getElementById('live-count');
+  el.textContent='🔴 LIVE · '+count+'명 파티 중 ▾';
+  el.style.display='block';
+});
+
+// 총 방문자 카운트
+onValue(visitorsRef, (snapshot)=>{
+  var count=snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+  var el=document.getElementById('total-count');
+  el.textContent='👥 총 '+count+'명 다녀감';
+  el.style.display=count>0?'block':'none';
+});
+
+// 라이브 뱃지 클릭 → 게스트 패널 토글
+document.getElementById('live-count').addEventListener('click', ()=>{
+  var panel=document.getElementById('guest-panel');
+  if(panel.classList.contains('open')){
+    panel.classList.remove('open');
+  } else {
+    updateGuestPanel();
+    panel.classList.add('open');
+  }
+});
+
+// ── 입장 처리 ─────────────────────────────────────────────────────
+// ── 타입 선택 ─────────────────────────────────────────────────────
+var selectedType='golden';
+document.querySelectorAll('.type-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedType=btn.dataset.type;
+    // 커스텀 이미지 선택 시 타입 버튼 비활성화 표시
+    if(selectedImageData) btn.classList.remove('active');
+  });
+});
+
+// ── 이미지 업로드 & 압축 ──────────────────────────────────────────
+var selectedImageData=null;
+document.getElementById('img-file').addEventListener('change', function(){
+  var file=this.files[0];
+  if(!file) return;
+  var imgErr=document.getElementById('img-error');
+  if(file.size>200*1024){ imgErr.textContent='200KB 이하 이미지만 올릴 수 있어요'; this.value=''; return; }
+  imgErr.textContent='';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var MAX=200;
+      var w=img.width, h=img.height;
+      if(w>h){ if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} } else { if(h>MAX){w=Math.round(w*MAX/h);h=MAX;} }
+      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      selectedImageData=cv.toDataURL('image/jpeg',0.75);
+      // 미리보기
+      document.getElementById('img-preview').src=selectedImageData;
+      document.getElementById('img-preview-wrap').style.display='flex';
+      document.getElementById('img-label').textContent='✅ 사진 선택됨';
+      // 타입 버튼 비활성화 (사진 우선)
+      document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('img-clear').addEventListener('click',()=>{
+  selectedImageData=null;
+  document.getElementById('img-file').value='';
+  document.getElementById('img-preview-wrap').style.display='none';
+  document.getElementById('img-label').textContent='📎 내 사진 직접 올리기 (선택 · 200KB 이하)';
+  // 타입 버튼 복원
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.type-btn[data-type="'+selectedType+'"]').classList.add('active');
+});
+
+document.getElementById('join-btn').addEventListener('click', joinParty);
+document.getElementById('join-input').addEventListener('keydown', e=>{ if(e.key==='Enter') joinParty(); });
+
+function joinParty(){
+  var name=document.getElementById('join-input').value.trim().replace(/^@/,'');
+  var errEl=document.getElementById('join-error');
+  if(!name){ errEl.textContent='아이디를 입력해주세요 😅'; return; }
+  if(name.length<2){ errEl.textContent='2글자 이상 입력해주세요'; return; }
+  errEl.textContent='';
+  var pos=findFreePos();
+  var payload={ name:name, x:pos[0], z:pos[1], hamType:selectedType, joinedAt:serverTimestamp() };
+  if(selectedImageData) payload.imageData=selectedImageData;
+  var guestRef=push(guestsRef, payload);
+  onDisconnect(guestRef).remove();
+  set(ref(db,'visitors/'+name.replace(/[.#$\[\]]/g,'_')), { name:name, visitedAt:serverTimestamp() });
+  document.getElementById('join-screen').style.display='none';
+}
+
+// ── 카메라 컨트롤 ─────────────────────────────────────────────────
+var drag=false, lx=0, ly=0;
+var tTheta=0, tPhi=0.32, tRadius=20;
+var theta=0,  phi=0.32,  radius=20;
+var tLookX=0, tLookY=3, tLookZ=0;
+var lookX=0,  lookY=3,  lookZ=0;
+var ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+var activeBubble=null, bubbleTimer=null;
+
+function showBubble(x,y,h){
+  if(activeBubble){clearTimeout(bubbleTimer);activeBubble.remove();activeBubble=null;}
+  var el=document.createElement('div'); el.className='bubble';
+  el.innerHTML='<div class="bubble-name">@'+h.name+'</div><div class="bubble-msg">'+h.msg+'</div>';
+  el.style.left=Math.min(Math.max(x,110),window.innerWidth-110)+'px';
+  el.style.top=y+'px';
+  document.body.appendChild(el); activeBubble=el;
+  requestAnimationFrame(()=>el.classList.add('show'));
+  bubbleTimer=setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=>{if(el.parentNode)el.remove();if(activeBubble===el)activeBubble=null;},250);
+  },3500);
+}
+
+renderer.domElement.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+renderer.domElement.addEventListener('touchstart',e=>{drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;},{passive:true});
+window.addEventListener('mousemove',e=>{
+  if(!drag)return;
+  tTheta-=(e.clientX-lx)*0.008; tPhi=Math.max(0.05,Math.min(1.15,tPhi+(e.clientY-ly)*0.008));
+  lx=e.clientX; ly=e.clientY;
+});
+window.addEventListener('touchmove',e=>{
+  if(!drag)return;
+  tTheta-=(e.touches[0].clientX-lx)*0.01; tPhi=Math.max(0.05,Math.min(1.15,tPhi+(e.touches[0].clientY-ly)*0.01));
+  lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+},{passive:true});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('touchend',()=>drag=false);
+renderer.domElement.addEventListener('wheel',e=>{tRadius=Math.max(5,Math.min(32,tRadius+e.deltaY*0.02));},{passive:true});
+
+renderer.domElement.addEventListener('click',e=>{
+  var rect=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+  mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  var allSprites=[zellySprite,...Object.values(liveSprites).map(v=>v.sprite)];
+  var hits=ray.intersectObjects(allSprites);
+  if(hits.length) showBubble(e.clientX,e.clientY,hits[0].object.userData.h);
+});
+
+// ── Zelly 말풍선 ──────────────────────────────────────────────────
+var zellyMsgNames=[...Object.values(liveSprites).map(v=>v.sprite.userData.h.name)];
+var zellyMsgIdx=0, zellyMsgT=0, ZELLY_INTERVAL=3.0;
+document.getElementById('zelly-msg').textContent='어서와요! 파티에 입장해봐요 🎉';
+
+// ── 애니메이션 루프 ───────────────────────────────────────────────
+var t=0;
+function animate(){
+  requestAnimationFrame(animate); t+=0.016;
+  theta+=(tTheta-theta)*0.08; phi+=(tPhi-phi)*0.08; radius+=(tRadius-radius)*0.08;
+  camera.position.x=radius*Math.sin(theta)*Math.cos(phi);
+  camera.position.y=2+radius*Math.sin(phi);
+  camera.position.z=radius*Math.cos(theta)*Math.cos(phi);
+  lookX+=(tLookX-lookX)*0.06; lookY+=(tLookY-lookY)*0.06; lookZ+=(tLookZ-lookZ)*0.06;
+  camera.lookAt(lookX,lookY,lookZ);
+
+  flameMesh.position.y=3.87+Math.sin(t*9)*0.04;
+  cLight.intensity=1.6+Math.sin(t*13)*0.3;
+  sunMesh.position.y=20+Math.sin(t*0.08)*0.6;
+  balloonObjs.forEach(b=>{ b.position.y=b.userData.baseY+Math.sin(t*1.2+b.userData.phase)*0.22; });
+
+  // 실시간 게스트 스프라이트 애니메이션
+  Object.values(liveSprites).forEach(({sprite:sp})=>{
+    var d=sp.userData;
+    if(d.entering){
+      d.enterT=Math.min(d.enterT+0.04, 1);
+      var ease=1-Math.pow(1-d.enterT,3);
+      sp.scale.set(d.sw*ease, d.sh*ease, 1);
+      sp.position.y=d.baseY + (1-ease)*6 + Math.sin(t*1.4+d.phase)*0.1;
+      if(d.enterT>=1) d.entering=false;
+    } else if(d.leaving){
+      sp.position.y+=0.08; sp.scale.x*=0.97; sp.scale.y*=0.97;
+      if(sp.scale.x<0.05) scene.remove(sp);
+    } else {
+      sp.position.y=d.baseY+Math.sin(t*1.4+d.phase)*0.12;
+    }
+  });
+
+  zellySprite.position.y=zellySprite.userData.baseY+Math.sin(t*1.1)*0.18;
+
+  // Zelly 말풍선 위치 추적
+  var zp=new THREE.Vector3(zellySprite.position.x,zellySprite.position.y+zellySprite.userData.sh*0.5+0.4,zellySprite.position.z);
+  zp.project(camera);
+  if(zp.z<1){
+    var bx=Math.max(120,Math.min(window.innerWidth-120,(zp.x+1)/2*window.innerWidth));
+    var by=Math.max(70,Math.min(window.innerHeight-60,(-zp.y+1)/2*window.innerHeight));
+    var bub=document.getElementById('zelly-bubble');
+    bub.style.left=bx+'px'; bub.style.top=by+'px'; bub.style.display='block';
+  }
+
+  // Zelly 메시지 순환 (접속자 이름으로)
+  zellyMsgT+=0.016;
+  if(zellyMsgT>=ZELLY_INTERVAL){
+    zellyMsgT=0;
+    var liveNames=Object.values(liveSprites).map(v=>v.sprite.userData.h.name);
+    var msgEl=document.getElementById('zelly-msg');
+    msgEl.style.opacity='0';
+    setTimeout(()=>{
+      if(liveNames.length>0){
+        zellyMsgIdx=(zellyMsgIdx+1)%liveNames.length;
+        msgEl.textContent='@'+liveNames[zellyMsgIdx]+'야, 와줘서 고마오! 🎂';
+      } else {
+        msgEl.textContent='어서와요! 파티에 입장해봐요 🎉';
+      }
+      msgEl.style.opacity='1';
+    },200);
+  }
+
+  // 콘페티
+  confetti.forEach(c=>{
+    var d=c.userData;
+    c.position.y+=d.vy; c.position.x+=d.vx+Math.sin(t*d.swayFreq+d.swayPhase)*d.swayAmp; c.position.z+=d.vz;
+    c.rotation.x+=d.rx; c.rotation.y+=d.ry; c.rotation.z+=d.rz;
+    if(c.position.y<-0.5){c.position.y=rng(24,34);c.position.x=rng(-24,24);c.position.z=rng(-24,12);}
+  });
+
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+});
+</script>
+</body>
+</html>
